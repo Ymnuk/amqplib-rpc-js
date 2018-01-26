@@ -1,0 +1,26 @@
+{
+  "name": "amqplib-rpc-js",
+  "url": "https://github.com/Ymnuk/amqplib-rpc-js",
+  "version": "0.1.0",
+  "description": "AMQPLib-RPC server and client for Node.JS",
+  "main": "index.js",
+  "scripts": {
+    "test": "vows test/* --spec"
+  },
+  "keywords": [
+    "AMQP",
+    "AMQP 0-9-1",
+    "RabbitMQ",
+    "RPC",
+    "amqplib"
+  ],
+  "author": "Ymnuk",
+  "license": "MIT",
+  "dependencies": {
+    "amqplib": "0.5.2",
+    "uuid": "3.2.1"
+  },
+  "devDependencies": {
+    "vows": "0.8.1"
+  }
+}
