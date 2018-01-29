@@ -120,7 +120,7 @@ vows
 				},
 				'Should return name method "fibanother"': function(err, result) {
 					if(err) {
-						assert.equal(err.name, 'fibanother');
+						assert.equal(err.method, 'fibanother');
 					} else {
 						assert.fail('Error return name');
 					}
@@ -148,7 +148,7 @@ vows
 				},
 				'Should return name method "longTime"': function(err, result) {
 					if(err) {
-						assert.equal(err.name, 'longTime');
+						assert.equal(err.method, 'longTime');
 					} else {
 						assert.fail('Error return name');
 					}

@@ -43,7 +43,7 @@ const client = new Client({queue: "test"});
 
 client.run()
 	.then(function(res) {
-		//Should return true
+		//"res" should return true
 		client.call('method', params, function(err, resu) {
 			//Do something with result
 		});
@@ -73,3 +73,15 @@ To stop the client, use the client.stop()
 - password - Password for connection to MQServer (default: 'guest')
 - heartbeat - Heartbeat for testing connection to MQServer (default: 30 secs)
 - queue - The name of the queue to which the client requests will be sent to the server. If the value is null, the name is generated automatically
+- timeout - The parameter is intended for setting the waiting for a response from the server. If the waiting time is longer than the set time, then there will be a generated TimeoutException error. The time is set in seconds. (default: 0 (infinity))
+
+## Warning
+
+Module in develop.
+
+## Changelog
+
+### 0.1.1
+
+Change attribute "name" in error on "method"
+Change just error on class "RpcError"

@@ -1,6 +1,7 @@
 'use strict';
 
 const TimeoutException = require('./libs/TimeoutException');
+const RpcException = require('./libs/RpcError');
 
 const amqplib = require('amqplib');
 const uuid = require('uuid/v4');
@@ -170,11 +171,7 @@ class Client {
 			delete obj.__correlations[correlationId];
 			if(corrId.callback != null && typeof(corrId.callback) == 'function') {
 				if(err) {
-					error = new Error();
-					error.code = err.code;
-					error.name = err.name;
-					error.message = err.message;
-					error.trace = err.trace;
+					error = new RpcException(err);
 				}
 				corrId.callback(error, result);
 			}

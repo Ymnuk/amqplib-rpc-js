@@ -1,5 +1,5 @@
 node_modules/*
-test/*
-package-locj.json
+test
+package-lock.json
 TODO
 .gitignore

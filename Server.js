@@ -182,14 +182,14 @@ class Server {
 	__call(method, params, cb) {
 		let err = null;
 		if(!this.__funcs.hasOwnProperty(method)) {
-			err = {code: -32601, name: method, message: "Method not found"};
+			err = {code: -32601, method: method, message: "Method not found"};
 			cb(err);
 		} else {
 			this.__funcs[method](params, (err, result) => {
 				if(err) {
 					cb({
 						code: -32603,
-						name: err.name,
+						method: err.method,
 						message: err.message,
 						stack: err.stack
 					});
