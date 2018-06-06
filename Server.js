@@ -30,6 +30,8 @@ class Server {
 		this.__channel = null;
 		this.__queue = null;
 
+		this.__fayulogger = null;
+
 		this.__ee = new EventEmitter;
 
 		//Событие запроса выполнения метода
@@ -49,10 +51,53 @@ class Server {
 	}
 
 	/**
+	 * Отправка сообщения лога в систему логирования (если установлена)
+	 * @param {String} level Уровень логирования
+	 * @param {Object} msg Сообщение
+	 */
+	__sendLog(level, msg) {
+		if(this.__fayulogger) {
+			switch(level.toLowerCase()) {
+				case 'debug':
+					for(let mod in this.__fayulogger.modules) {
+						mod.debug(msg);
+					}
+					break;
+				case 'info':
+					for(let mod in this.__fayulogger.modules) {
+						mod.info(msg);
+					}
+					break;
+				case 'warn':
+					for(let mod in this.__fayulogger.modules) {
+						mod.warn(msg);
+					}
+					break;
+				case 'severe':
+					for(let mod in this.__fayulogger.modules) {
+						mod.severe(msg);
+					}
+					break;
+				case 'error':
+					for(let mod in this.__fayulogger.modules) {
+						mod.error(msg);
+					}
+					break;
+				case 'fatal':
+					for(let mod in this.__fayulogger.modules) {
+						mod.fatal(msg);
+					}
+					break;
+			}
+		}
+	}
+
+	/**
 	 * Привязка функций и запуск сервера
 	 */
 	async run() {
 		try {
+			//Подключение к MQ
 			this.__connection = await amqplib.connect({
 				protocol: 'amqp',
 				hostname: this.__hostname,
@@ -64,11 +109,26 @@ class Server {
 				heartbeat: this.__heartbeat,
 				vhost: this.__vhost
 			});
+			this.__sendLog('info', {
+				protocol: 'amqp',
+				hostname: this.__hostname,
+				port: this.__port,
+				username: this.__username,
+				locale: this.__locale,
+				frameMax: this.__frameMax,
+				heartbeat: this.__heartbeat,
+				vhost: this.__vhost
+			})
 		}catch(e){
 			this.stop();
+			this.__sendLog("error", {
+				errName: e.name,
+				strack: e.stack
+			})
 			throw e;
 		}
 		try {
+			//Создание канала в MQ
 			this.__channel = await this.__connection.createChannel();
 			this.__channel.prefetch(this.__prefetch);
 			this.__channel.on('close', () => {
@@ -85,18 +145,29 @@ class Server {
 			this.__channel.on('drain', () => {
 				//TODO Like a stream.Writable, a channel will emit 'drain', if it has previously returned false from #publish or #sendToQueue, once its write buffer has been emptied (i.e., once it is ready for writes again).
 			});
+			this.__sendLog("info", "Channel created");
 		}catch(e){
 			this.stop();
+			this.__sendLog("error", {
+				errName: e.name,
+				strack: e.stack
+			})
 			throw e;
 		}
 		try{
+			//Определение очереди в MQ
 			await this.__channel.assertQueue(this.__queueName, {
 				/*exclusive: true,*/
 				autoDelete: false,
 				durable: true
 			});
+			this.__sendLog("info", `Connected to queue: ${this.__queueName}`);
 		}catch(e){
 			this.stop();
+			this.__sendLog("error", {
+				errName: e.name,
+				strack: e.stack
+			})
 			throw e;
 		}
 		let self = this;//Установка собственного объекта для обслуживания
@@ -106,8 +177,13 @@ class Server {
 			}, {
 				durable: false
 			});
+			this.__sendLog('info', 'Linked consume');
 		} catch(e) {
 			this.stop();
+			this.__sendLog("error", {
+				errName: e.name,
+				strack: e.stack
+			})
 			throw e;
 		}
 		return true;
@@ -125,6 +201,7 @@ class Server {
 		}finally{
 			this.__connection = null;
 		}
+		this.__sendLog('info', 'Closed connect');
 		return true;
 	}
 
@@ -156,7 +233,11 @@ class Server {
 	__handler(msg, obj) {
 		//Обработчик сообщений
 		let data = JSON.parse(msg.content.toString());
-		let err = null;
+		//let err = null;
+		let t1 = null;//Замер затраченного времени функции (начальная отметка)
+		if(this.__fayulogger) {
+			t1 = new Date();
+		}
 		obj.__call(data.method, data.params, (err, result) => {
 			//Возврат ответа и результат выполнения функции
 			//console.log(err, result);
@@ -170,6 +251,20 @@ class Server {
 				obj.__channel.ack(msg);
 			}
 			obj.__ee.emit('response', tmp);
+			if(this.__fayulogger) {
+				let total = new Date() - t1;//Замер затраченного времени функции (конечная отметка)
+				if(err) {
+					err.errName = err.name;
+					err.time = total;
+					this.__sendLog('error', err);
+				} else {
+					this.__sendLog('info', {
+						correlationId: msg.properties.correlationId,
+						replyTo: msg.properties.replyTo,
+						time: total
+					})
+				}
+			}
 		});
 	}
 
@@ -198,6 +293,14 @@ class Server {
 				}
 			});
 		}
+	}
+
+	set FAYULogger(value) {
+		this.__fayulogger = value;
+	}
+
+	get FAYULogger() {
+		return this.__fayulogger;
 	}
 }
 

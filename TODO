@@ -1,13 +1,14 @@
 
 Реализовать на клиенте:
 	✔ Собственный класс исключения при окончании времени ожидания ответа от сервера @high @done(18-01-25 21:43)
-	☐ Собственный класс исключения, в случае если сервер вернул ошибку @high 
+	✔ Собственный класс исключения, в случае если сервер вернул ошибку @high @done(18-06-06 12:56)
 	✔ Обработать исключение очистки таймаута, если оно возникнет @high @done(18-01-25 19:44)
 	☐ Реализовать восстановление подключения к MQ в случае разрыва @high 
   ☐ Если канал закрыт @low
 	☐ Если получена ошибка канала @low
 	☐ Если возвращено сообщение, которое не удалось отправить в очередь @low
-  ☐ Like a stream.Writable, a channel will emit 'drain', if it has previously returned false from #publish or #sendToQueue, once its write buffer has been emptied (i.e., once it is ready for writes again).@low 
+	☐ Like a stream.Writable, a channel will emit 'drain', if it has previously returned false from #publish or #sendToQueue, once its write buffer has been emptied (i.e., once it is ready for writes again).@low 
+	✔ Реализовать использование логирования клиента и сервера через FAYULogger @medium @done(18-06-06 12:57)
 
 Реализовать на сервере:
 	✔ Вернуть ошибку, если не найдено метода для выполнения @high @done(18-01-25 19:47)

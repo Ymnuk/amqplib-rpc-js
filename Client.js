@@ -6,6 +6,8 @@ const RpcException = require('./libs/RpcError');
 const amqplib = require('amqplib');
 const uuid = require('uuid/v4');
 
+const clonedeep = require('lodash.clonedeep');
+
 class Client {
 
 	/**
@@ -31,6 +33,51 @@ class Client {
 		this.__connection = null;
 		this.__channel = null;
 		this.__queue = null;
+
+		this.__fayulogger = null;
+	}
+
+	/**
+	 * Отправка сообщения лога в систему логирования (если установлена)
+	 * @param {String} level Уровень логирования
+	 * @param {Object} msg Сообщение
+	 */
+	__sendLog(level, msg) {
+		if(this.__fayulogger) {
+			console.log('OK');
+			switch(level.toLowerCase()) {
+				case 'debug':
+					for(let mod in this.__fayulogger.modules) {
+						mod.debug(msg);
+					}
+					break;
+				case 'info':
+					for(let mod in this.__fayulogger.modules) {
+						mod.info(msg);
+					}
+					break;
+				case 'warn':
+					for(let mod in this.__fayulogger.modules) {
+						mod.warn(msg);
+					}
+					break;
+				case 'severe':
+					for(let mod in this.__fayulogger.modules) {
+						mod.severe(msg);
+					}
+					break;
+				case 'error':
+					for(let mod in this.__fayulogger.modules) {
+						mod.error(msg);
+					}
+					break;
+				case 'fatal':
+					for(let mod in this.__fayulogger.modules) {
+						mod.fatal(msg);
+					}
+					break;
+			}
+		}
 	}
 
 	/**
@@ -49,10 +96,17 @@ class Client {
 			try {
 				clearTimeout(this.__timeoutId);//Очищаем таймаут
 			}catch(e){
-				//TODO Обработать исключение очистки таймаута, если оно возникнет
+				//Обработать исключение очистки таймаута, если оно возникнет
+				this.__sendLog('error', {
+					errName: e.name,
+					stack: e.stack,
+					message: e.message
+				})
+				throw e;
 			}
 			this.__timeoutId = null;
 		}
+		this.__sendLog('info', 'Closed connect');
 		return true;
 	}
 
@@ -72,9 +126,23 @@ class Client {
 				heartbeat: this.__heartbeat,
 				vhost: this.__vhost
 			});
+			this.__sendLog('info', {
+				protocol: 'amqp',
+				hostname: this.__hostname,
+				port: this.__port,
+				username: this.__username,
+				locale: this.__locale,
+				frameMax: this.__frameMax,
+				heartbeat: this.__heartbeat,
+				vhost: this.__vhost
+			})
 		}catch(e){
-			console.error(e);
+			//console.error(e);
 			this.stop();
+			this.__sendLog("error", {
+				errName: e.name,
+				strack: e.stack
+			})
 			throw e;
 		}
 		try {
@@ -94,9 +162,13 @@ class Client {
 			this.__channel.on('drain', () => {
 				//TODO Like a stream.Writable, a channel will emit 'drain', if it has previously returned false from #publish or #sendToQueue, once its write buffer has been emptied (i.e., once it is ready for writes again).
 			});
+			this.__sendLog("info", "Channel created");
 		}catch(e){
-			console.error(e);
 			this.stop();
+			this.__sendLog("error", {
+				errName: e.name,
+				strack: e.stack
+			})
 			throw e;
 		}
 		try{
@@ -104,9 +176,13 @@ class Client {
 				exclusive: true,
 				autoDelete: true
 			});
+			this.__sendLog("info", `Connected to queue: ${this.__queueName}`);
 		}catch(e){
-			console.error(e);
 			this.stop();
+			this.__sendLog("error", {
+				errName: e.name,
+				strack: e.stack
+			})
 			throw e;
 		}
 		let self = this;//Установка собственного объекта для обслуживания
@@ -116,9 +192,13 @@ class Client {
 			}, {
 				noAck: true
 			});
+			this.__sendLog('info', 'Linked consume');
 		} catch(e) {
-			console.error(e);
 			this.stop();
+			this.__sendLog("error", {
+				errName: e.name,
+				strack: e.stack
+			})
 			throw e;
 		}
 		if(this.__timeout > 0) {
@@ -145,7 +225,14 @@ class Client {
 				if(corrId.callback && typeof(corrId.callback) == 'function') {
 					//Вернуть ошибку по истечении времени ожидания ответа от сервера
 					delete obj.__correlations[i];
-					corrId.callback(new TimeoutException(corrId.method));
+					let e = new TimeoutException(corrId.method);
+					/*this.__sendLog('error', {
+						errName: e.name,
+						method: e.method,
+						message: e.message,
+						code: e.code
+					});*/
+					corrId.callback(e);
 				}
 			}
 		}
@@ -194,10 +281,24 @@ class Client {
 		}
 		let id = uuid();
 		this.__correlations[id] = obj;
+		this.__sendLog('info', {
+			id: id,
+			method: method,
+			callDate: obj.callDate,
+			replyTo: this.__queueSelf
+		})
 		this.__channel.sendToQueue(this.__queueName, Buffer.from(JSON.stringify(obj)), {
 			correlationId: id,
 			replyTo: this.__queueSelf,
 		});
+	}
+
+	set FAYULogger(value) {
+		this.__fayulogger = value;
+	}
+
+	get FAYULogger() {
+		return this.__fayulogger;
 	}
 
 
