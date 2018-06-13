@@ -328,7 +328,7 @@ class Server {
 				});
 			} else {
 				//Валидация не прошла. Возвращаем ошибку
-				err = { code: -32602, method: method, message: 'Invalid params'}
+				err = { code: -32602, method: method, message: 'Invalid params', messages: this.__schemas[method].errors}
 				cb(err);
 			}
 		} else {

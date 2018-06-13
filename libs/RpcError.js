@@ -12,6 +12,9 @@ class RpcError extends Error {
 				if(err.message) {
 					this.message = err.message;
 				}
+				if(err.messages) {
+					this.messages = err.messages;
+				}
 				if(err.stack) {
 					this.stack = err.stack;
 				}

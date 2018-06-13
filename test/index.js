@@ -115,6 +115,7 @@ vows
 					})
 				},
 				'Should return error code -32602': function(err, res) {
+					console.log(err);
 					if(err) {
 						assert.equal(err.code, -32602);
 					} else {
