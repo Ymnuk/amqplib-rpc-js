@@ -5,6 +5,7 @@ const EventEmitter = require('events').EventEmitter;
 const uuid = require('uuid/v4');
 
 const amqplib = require('amqplib');
+const Ajv = require('ajv');
 
 class Server {
 
@@ -25,6 +26,7 @@ class Server {
 		this.__prefetch = options && options.prefetch && typeof(options.prefetch) == 'number' ? options.prefetch : 3;
 		this.__reconnect = options && options.reconnect && typeof(options.reconnect) == 'boolean' ? options.reconnect : false;//Переподключаться, если был разрыв соединения
 		this.__funcs = {};//Список функций
+		this.__schemas = {};//Список схема для валидации
 
 		this.__connection = null;
 		this.__channel = null;
@@ -48,6 +50,8 @@ class Server {
 				}
 			}
 		});
+
+		this.__ajv = new Ajv(require('ajv/lib/refs/json-schema-draft-07.json'))
 	}
 
 	/**
@@ -215,9 +219,35 @@ class Server {
 		return this.__funcs.hasOwnProperty(name);
 	}
 
+	/**
+	 * Привязка схемы для валидации переданных параметров
+	 * @param {string} name Название метода для привязки
+	 * @param {Object} obj Схема для валидации
+	 */
+	bindSchema(name, obj) {
+		//if(!this.__funcs.hasOwnProperty(name)) {
+			this.__schemas[name] = this.__ajv.compile(obj);
+		//}
+		return this.__schemas[name];
+	}
+
+	/**
+	 * Удалить привязку метода
+	 * @param {string} name Название метода
+	 */
 	unbind(name) {
 		if(this.__funcs.hasOwnProperty(name)) {
-			delete this.__funcs(name);
+			delete this.__funcs.name;
+		}
+	}
+
+	/**
+	 * Удаление схемы валидации запроса для метода
+	 * @param {string} name Название метода
+	 */
+	unbindSchema(name) {
+		if(this.__schemas.hasOwnProperty(name)) {
+			delete this.__schemas.name
 		}
 	}
 
@@ -276,10 +306,33 @@ class Server {
 	 */
 	__call(method, params, cb) {
 		let err = null;
+		//console.log(this.__schemas);
 		if(!this.__funcs.hasOwnProperty(method)) {
 			err = {code: -32601, method: method, message: "Method not found"};
 			cb(err);
+		} else if(this.__schemas.hasOwnProperty(method)) {//Проверяем есть ли схема
+			//console.log(this.__schemas[method]);
+			if(this.__schemas[method](params)) {//Проверяем валидность со схемой
+				//Все хорошо. Выполняем функцию
+				this.__funcs[method](params, (err, result) => {
+					if(err) {
+						cb({
+							code: -32603,
+							method: err.method,
+							message: err.message,
+							stack: err.stack
+						});
+					} else {
+						cb(null, result);
+					}
+				});
+			} else {
+				//Валидация не прошла. Возвращаем ошибку
+				err = { code: -32602, method: method, message: 'Invalid params'}
+				cb(err);
+			}
 		} else {
+			//Выполняем функцию без проверки валидации, так как схема не определена
 			this.__funcs[method](params, (err, result) => {
 				if(err) {
 					cb({

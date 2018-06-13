@@ -19,6 +19,9 @@ server.bind('method', (params, callback) => {
 	callback(err, result);//Return result or error
 });
 
+//If you need verify params for correct, use schema json
+server.bindSchema('method', {/*schema*/})
+
 server.run()
 	.then(function(res) {
 		//Should return true
@@ -94,6 +97,10 @@ client.FAYULogger = logger;
 Module in develop.
 
 ## Changelog
+
+### 0.1.3
+
+Added support json-schema for verify parameters
 
 ### 0.1.1
 

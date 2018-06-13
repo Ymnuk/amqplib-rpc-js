@@ -21,6 +21,10 @@ function fibonacci(n) {
 	return b;
 }
 
+let schemaFib = {
+	type: "number"
+}
+
 vows
 	.describe('Testing RPC Server-Client')
 		.addBatch({
@@ -43,6 +47,7 @@ vows
 					server.bind('fibonacci', (num, cb) => {
 						cb(null, fibonacci(num));
 					});
+					server.bindSchema('fibonacci', schemaFib);
 					//Функция с таймаутом для эмуляции долгого выполнения удаленной процедуры
 					server.bind('longTime', (par, cb) => {
 						setTimeout((obj) => {
@@ -100,6 +105,34 @@ vows
 						assert.fail(err);
 					} else {
 						assert.equal(result, 8);
+					}
+				}
+			},
+			'Verify not valid schema request': {
+				topic: function() {
+					client.call('fibonacci', 'test', (err, result) => {
+						this.callback(err, result);
+					})
+				},
+				'Should return error code -32602': function(err, res) {
+					if(err) {
+						assert.equal(err.code, -32602);
+					} else {
+						assert.fail('Code not found');
+					}
+				},
+				'Should return error method "fibonacci"': function(err, res) {
+					if(err) {
+						assert.equal(err.method, 'fibonacci');
+					} else {
+						assert.fail('Method not found');
+					}
+				},
+				'Should return error message "Invalid params"': function(err, res) {
+					if(err) {
+						assert.equal(err.message, 'Invalid params');
+					} else {
+						assert.fail('Message not found');
 					}
 				}
 			}
