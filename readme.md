@@ -100,6 +100,10 @@ Module in develop.
 
 ## Changelog
 
+### 0.1.4
+
+Add support reconnect for server and client
+
 ### 0.1.3
 
 Added support json-schema for verify parameters

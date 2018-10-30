@@ -1,7 +1,7 @@
 {
   "name": "amqplib-rpc-js",
   "homepage": "https://github.com/Ymnuk/amqplib-rpc-js",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "AMQPLib-RPC server and client for Node.JS",
   "main": "index.js",
   "scripts": {
@@ -21,9 +21,9 @@
     "amqplib": "0.5.2",
     "fayulogger": "git+https://github.com/Ymnuk/FAYULogger-js.git",
     "lodash.clonedeep": "*",
-    "uuid": "3.2.1"
+    "uuid": "^3.2.1"
   },
   "devDependencies": {
-    "vows": "0.8.1"
+    "vows": "^0.8.2"
   }
 }
