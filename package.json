@@ -5,7 +5,7 @@
   "description": "AMQPLib-RPC server and client for Node.JS",
   "main": "index.js",
   "scripts": {
-    "test": "vows test/* --spec"
+    "test": "node --inspect=9229 node_modules/.bin/vows test/* --spec"
   },
   "keywords": [
     "AMQP",

@@ -67,6 +67,8 @@ To stop the client, use the client.stop()
 - heartbeat - Heartbeat for testing connection to MQServer (default: 30 secs)
 - queue - The name of the server queue. If the value is null, the name is generated automatically
 - prefetch - Determines how many maximum messages the server can receive from the queue (default: 3)
+- reconnect - Flag with server trying reconnection to MQ-server (default: false)
+- reconnectTimeout - Each Seconds server trying reconnect to MQ-server
 
 ## Client options
 

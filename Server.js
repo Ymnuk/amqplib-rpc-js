@@ -25,6 +25,7 @@ class Server {
 		this.__queueName = options && options.queue ? options.queue : `server-rpc-${uuid()}`;//Название очереди сервера
 		this.__prefetch = options && options.prefetch && typeof(options.prefetch) == 'number' ? options.prefetch : 3;
 		this.__reconnect = options && options.reconnect && typeof(options.reconnect) == 'boolean' ? options.reconnect : false;//Переподключаться, если был разрыв соединения
+		this.__reconnectTimeout = options && options.reconnectTimeout && typeof(options.reconnectTimeout) == "number" ? options.reconnectTimeout * 1000 : 30000;//Если установлен флаг переподключения, то выдержать таймаут перед переподключением
 		this.__funcs = {};//Список функций
 		this.__schemas = {};//Список схема для валидации
 
@@ -36,22 +37,41 @@ class Server {
 
 		this.__ee = new EventEmitter;
 
+		this.__buffer = [];
+
 		//Событие запроса выполнения метода
 		this.__ee.on('request', (obj) => {
 			this.__handler(obj.msg, this);
 		});
 		//Событие отправки результата
 		this.__ee.on('response', (obj) => {
-			if(this.__channel) {
-				if(obj.error) {
-					this.__channel.sendToQueue(obj.replyTo, Buffer.from(JSON.stringify({error: obj.error})), {correlationId: obj.correlationId});
-				} else {
-					this.__channel.sendToQueue(obj.replyTo, Buffer.from(JSON.stringify({result: obj.result})), {correlationId: obj.correlationId});
+			if(this.__activated && !this.__onConnected) {
+				this.__buffer.push(obj);
+			} else {
+				if(this.__buffer.length > 0) {
+					let buff = this.__buffer;
+					this.buffer = [];
+					for(let i = 0; i < buff.length; i++) {
+						this.__response(buff[i]);
+					}
 				}
+				this.__response(obj);
 			}
 		});
+		this.__activated = false;
+		this.__onConnectedt = false;
 
 		this.__ajv = new Ajv(require('ajv/lib/refs/json-schema-draft-07.json'))
+	}
+
+	__response(obj) {
+		if(this.__channel) {
+			if(obj.error) {
+				this.__channel.sendToQueue(obj.replyTo, Buffer.from(JSON.stringify({error: obj.error})), {correlationId: obj.correlationId});
+			} else {
+				this.__channel.sendToQueue(obj.replyTo, Buffer.from(JSON.stringify({result: obj.result})), {correlationId: obj.correlationId});
+			}
+		}
 	}
 
 	/**
@@ -97,9 +117,9 @@ class Server {
 	}
 
 	/**
-	 * Привязка функций и запуск сервера
+	 * Подключение к серверу
 	 */
-	async run() {
+	async __connect() {
 		try {
 			//Подключение к MQ
 			this.__connection = await amqplib.connect({
@@ -124,18 +144,44 @@ class Server {
 				vhost: this.__vhost
 			})
 		}catch(e){
-			this.stop();
+			if(this.__reconnect) {
+				this.__reconnectAgain();
+			} else {
+				this.stop();
+			}
 			this.__sendLog("error", {
 				errName: e.name,
 				strack: e.stack
 			})
 			throw e;
 		}
+	}
+
+	/**
+	 * Повторно запускаем переподключение к серверу
+	 */
+	__reconnectAgain() {
+		if(this.__activated && this.__reconnect) {
+			setTimeout(() => {
+				(async () => {
+					this.run()
+				})().then();
+			}, this.__reconnectTimeout);
+			//TODO Соединение было установлено, запускаем реконнект к серверу
+		}
+	}
+
+	/**
+	 * Подготовка подключений
+	 */
+	async __prepare() {
 		try {
 			//Создание канала в MQ
 			this.__channel = await this.__connection.createChannel();
 			this.__channel.prefetch(this.__prefetch);
 			this.__channel.on('close', () => {
+				this.__onConnected = false;
+				this.__reconnectAgain();
 				//TODO если канал закрыт
 			});
 			this.__channel.on('error', (err) => {
@@ -190,6 +236,20 @@ class Server {
 			})
 			throw e;
 		}
+		this.__onConnected = true;
+	}
+
+	/**
+	 * Привязка функций и запуск сервера
+	 */
+	async run() {
+		this.__activated = true;
+		await this.__connect();
+		await this.__prepare();
+		if(!this.__onConnected) {
+			this.__reconnectAgain();
+		}
+		console.log("Connected");
 		return true;
 	}
 
@@ -197,6 +257,8 @@ class Server {
 	 * Остановка сервера
 	 */
 	async stop() {
+		this.__activated = false;
+		this.__onConnected = false;
 		this.__channel = null;
 		try {
 			if(this.__connection != null) {

@@ -47,6 +47,9 @@ vows
 					server.bind('fibonacci', (num, cb) => {
 						cb(null, fibonacci(num));
 					});
+					server.bind('echo', (num, cb) => {
+						cb(null, num);
+					});
 					server.bindSchema('fibonacci', schemaFib);
 					//Функция с таймаутом для эмуляции долгого выполнения удаленной процедуры
 					server.bind('longTime', (par, cb) => {
@@ -115,7 +118,7 @@ vows
 					})
 				},
 				'Should return error code -32602': function(err, res) {
-					console.log(err);
+					//console.log(err);
 					if(err) {
 						assert.equal(err.code, -32602);
 					} else {
@@ -216,7 +219,7 @@ vows
 					let endDate = null;
 					let count = 0;
 					for(let i = 0; i < 20000; i++) {
-						client.call('fibonacci', i, (err, res) => {
+						client.call('echo', i, (err, res) => {
 							count++;
 							if(count === 20000) {
 								endDate = new Date();

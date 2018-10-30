@@ -35,6 +35,10 @@ class Client {
 		this.__queue = null;
 
 		this.__fayulogger = null;
+
+		this.__activated = false;//Соединение установлено
+
+		this.__buffer = [];//Буффер в случае потери соединения
 	}
 
 	/**
@@ -84,6 +88,8 @@ class Client {
 	 * Остановка сервера
 	 */
 	async stop() {
+		this.__activated = false;
+		this.__onConnected = false;
 		this.__channel = null;
 		try {
 			if(this.__connection != null) {
@@ -111,9 +117,9 @@ class Client {
 	}
 
 	/**
-	 * Привязка функций и запуск клиента
+	 * Подготовка соединения
 	 */
-	async run() {
+	async __prepareConnect() {
 		try {
 			this.__connection = await amqplib.connect({
 				protocol: 'amqp',
@@ -138,6 +144,7 @@ class Client {
 			})
 		}catch(e){
 			//console.error(e);
+			//this.__reconnectAgain();
 			this.stop();
 			this.__sendLog("error", {
 				errName: e.name,
@@ -145,11 +152,30 @@ class Client {
 			})
 			throw e;
 		}
+	}
+
+	/**
+	 * Повторно запускаем переподключение к серверу
+	 */
+	__reconnectAgain() {
+		if(this.__activated) {
+			setTimeout(this.run(), 10000);
+			//TODO Соединение было установлено, запускаем реконнект к серверу
+		}
+	}
+
+	/**
+	 * Подключаемся к каналу
+	 */
+	async __connect()
+	{
 		try {
 			this.__channel = await this.__connection.createChannel();
 			this.__channel.prefetch(this.__prefetch);
 			this.__channel.on('close', () => {
-				//TODO если канал закрыт
+				console.error("Client disconnected");
+				this.__onConnected = false;
+				this.__reconnectAgain();
 			});
 			this.__channel.on('error', (err) => {
 				console.error(err);
@@ -171,6 +197,13 @@ class Client {
 			})
 			throw e;
 		}
+		await this.__linkingToQueues();
+	}
+
+	/**
+	 * Привязываемся к каналам и функциям
+	 */
+	async __linkingToQueues() {
 		try{
 			await this.__channel.assertQueue(this.__queueSelf, {
 				exclusive: true,
@@ -206,7 +239,18 @@ class Client {
 		} else {
 			this.__timeoutId = null;
 		}
+		this.__onConnected = true;
+		console.log("Client Conected");
 		//console.log(this.__channel);
+	}
+
+	/**
+	 * Привязка функций и запуск клиента
+	 */
+	async run() {
+		this.__activated = true;//Говорим, что соединение установлено
+		await this.__prepareConnect();
+		await this.__connect();
 		return true;
 	}
 
@@ -287,10 +331,31 @@ class Client {
 			callDate: obj.callDate,
 			replyTo: this.__queueSelf
 		})
-		this.__channel.sendToQueue(this.__queueName, Buffer.from(JSON.stringify(obj)), {
-			correlationId: id,
-			replyTo: this.__queueSelf,
-		});
+		
+		if(this.__activated && this.__onConnected) {
+			if(this.__buffer.length > 0) {
+				buf = this.__buffer;
+				this.__buffer = [];
+				for(let i = 0; i < buf.length; i++) {
+					this.__channel.sendToQueue(this.__queueName, Buffer.from(JSON.stringify(buff[i].obj)), {
+						correlationId: buff[i].id,
+						replyTo: this.__queueSelf,
+					});
+				}
+			}
+			this.__channel.sendToQueue(this.__queueName, Buffer.from(JSON.stringify(obj)), {
+				correlationId: id,
+				replyTo: this.__queueSelf,
+			});
+		}
+		//console.log(`Activated ${this.__activated}`);
+		//console.log(`OnConnected ${this.__onConnected}`);
+		if(this.__activated && !this.__onConnected) {
+			this.__buffer.push({
+				obj: obj,
+				id: id
+			})
+		}
 	}
 
 	set FAYULogger(value) {
