@@ -20,6 +20,12 @@
         {
             "type": "node",
             "request": "launch",
+            "name": "BenchClient",
+            "program": "${workspaceFolder}/bench/client.js"
+        },
+        {
+            "type": "node",
+            "request": "launch",
             "name": "Vows",
             "runtimeExecutable": "npm",
             "runtimeArgs": [

@@ -59,7 +59,7 @@ class Server {
 			}
 		});
 		this.__activated = false;
-		this.__onConnectedt = false;
+		this.__onConnected = false;
 
 		this.__ajv = new Ajv(require('ajv/lib/refs/json-schema-draft-07.json'))
 	}

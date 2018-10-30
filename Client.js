@@ -27,6 +27,7 @@ class Client {
 		this.__queueSelf = `client-rpc-${uuid()}`;//Собственная очередь для получения ответов от сервера
 		this.__prefetch = options && options.prefetch && typeof(options.prefetch) == 'number' ? options.prefetch : 1;//Параллельное Количество получаемых сообщений
 		this.__reconnect = options && options.reconnect && typeof(options.reconnect) == 'boolean' ? options.reconnect : false;//Переподключаться, если был разрыв соединения
+		this.__reconnectTimeout = options && options.reconnectTimeout && typeof(options.reconnectTimeout) == "number" ? options.reconnectTimeout * 1000 : 30000;//Если установлен флаг переподключения, то выдержать таймаут перед переподключением
 		this.__timeout = options && options.timeout && typeof(options.timeout) == 'number' ? options.timeout : 0;//Время ожидание ответа. 0 - бесконечно
 		this.__correlations = {};//Список список корреляционных идентификаторов
 
@@ -145,7 +146,11 @@ class Client {
 		}catch(e){
 			//console.error(e);
 			//this.__reconnectAgain();
-			this.stop();
+			if(this.__reconnect) {
+				this.__reconnectAgain();
+			} else {
+				this.stop();
+			}
 			this.__sendLog("error", {
 				errName: e.name,
 				strack: e.stack
@@ -158,8 +163,12 @@ class Client {
 	 * Повторно запускаем переподключение к серверу
 	 */
 	__reconnectAgain() {
-		if(this.__activated) {
-			setTimeout(this.run(), 10000);
+		if(this.__activated && this.__reconnect) {
+			setTimeout(() => {
+				(async () => {
+				this.run()
+				})().then()
+			}, this.__reconnectTimeout);
 			//TODO Соединение было установлено, запускаем реконнект к серверу
 		}
 	}
@@ -173,7 +182,7 @@ class Client {
 			this.__channel = await this.__connection.createChannel();
 			this.__channel.prefetch(this.__prefetch);
 			this.__channel.on('close', () => {
-				console.error("Client disconnected");
+				//console.error("Client disconnected");
 				this.__onConnected = false;
 				this.__reconnectAgain();
 			});
@@ -190,7 +199,11 @@ class Client {
 			});
 			this.__sendLog("info", "Channel created");
 		}catch(e){
-			this.stop();
+			if(this.__reconnect) {
+				this.__reconnectAgain();
+			} else {
+				this.stop();
+			}
 			this.__sendLog("error", {
 				errName: e.name,
 				strack: e.stack
@@ -251,6 +264,9 @@ class Client {
 		this.__activated = true;//Говорим, что соединение установлено
 		await this.__prepareConnect();
 		await this.__connect();
+		if(!this.__onConnected) {
+			this.__reconnectAgain();
+		}
 		return true;
 	}
 
@@ -334,9 +350,9 @@ class Client {
 		
 		if(this.__activated && this.__onConnected) {
 			if(this.__buffer.length > 0) {
-				buf = this.__buffer;
+				let buff = this.__buffer;
 				this.__buffer = [];
-				for(let i = 0; i < buf.length; i++) {
+				for(let i = 0; i < buff.length; i++) {
 					this.__channel.sendToQueue(this.__queueName, Buffer.from(JSON.stringify(buff[i].obj)), {
 						correlationId: buff[i].id,
 						replyTo: this.__queueSelf,
