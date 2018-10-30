@@ -1,6 +1,6 @@
 # RCP-Server and RCP-Client under amqplib for Node.JS
 
-	npm install amqplib
+	npm install amqplib-rpc-js
 
 A library for organizing remote procedure calls based on the AMQP 0-9-1 protocol using the amqplib library.
 
@@ -100,7 +100,7 @@ Module in develop.
 
 ## Changelog
 
-### 0.1.4
+### 0.1.5
 
 Add support reconnect for server and client
 

@@ -1,7 +1,7 @@
 {
   "name": "amqplib-rpc-js",
   "homepage": "https://github.com/Ymnuk/amqplib-rpc-js",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "AMQPLib-RPC server and client for Node.JS",
   "main": "index.js",
   "scripts": {
